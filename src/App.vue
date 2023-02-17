@@ -1,6 +1,11 @@
 <template>
   <div class="min-h-screen bg-slate-100 p-5">
-    <DataTable v-model="selected" v-model:sort-by="sortBy" v-model:sort-desc="sortDesc" :items="rows" :columns="columnDefs" :total-items="totalRows" selectable class="max-h-600px text-slate-900" @rowClick="rowClicked">
+    <DataTable
+      v-model="selected" v-model:sort-by="sortBy" v-model:sort-desc="sortDesc" v-model:search="search" :filters="filters"
+      :items="sortedRows" :columns="columnDefs" :total-items="totalRows"
+      :loading="loading" selectable class="max-h-600px text-slate-900"
+      @rowClick="rowClicked" @refresh="reloadData" @export="exportRows"
+    >
       <template #body-avatar="props">
         <UserAvatar :url="props.row.avatar" :text="props.row.fullName.split(' ').map(item => item[0]).join('')" />
       </template>
@@ -22,6 +27,27 @@ import {
   formatDistanceStrict
 } from 'date-fns';
 
+function isDate(d)
+{
+  return (!!d) && Object.prototype.toString.call(d) === '[object Date]';
+}
+
+function strCompare(a, b)
+{
+  if (a === null) return 1;
+  else if (b === null) return -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  if (isDate(a) || isDate(b))
+  {
+    const now = new Date();
+    return (a || now).getTime() - (b || now).getTime();
+  }
+  // if (a.match(/^[+-]?[0-9]+(\.[0-9]+)?$/) && b.match(/^[+-]?[0-9]+(\.[0-9]+)?$/)) return a - b;
+  if (a < b) return -1;
+  else if (a > b) return 1;
+  else return 0;
+}
+
 export default {
   name: 'App',
   components:
@@ -34,6 +60,7 @@ export default {
     return {
       timer: null, // the timer ticks every second - so that we can update the LastSeen column
       updateNow: false, // every time the timer event triggers - we toggle this flag to force an update of the computer property "currentNow"
+      loading: false,
       rows:
         [
           {
@@ -148,10 +175,50 @@ export default {
             avatar: 'https://images.unsplash.com/photo-1498529605908-f357a9af7bf5?ixlib=rb-0.3.5&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=200&fit=max&s=047fade70e80ebb22ac8f09c04872c40',
           },
         ],
-      totalRows: 428,
+      columnDefs:
+      [
+        {
+          name: 'avatar',
+          field: 'avatar',
+          width: 40,
+          visible: true,
+        },
+        {
+          name: 'user', // name is not supposed to be localizable
+          title: 'User', // title can be localized
+          field: 'fullName',
+          visible: true,
+        },
+        {
+          name: 'email',
+          title: 'Email',
+          field: 'email',
+          icon: IconUser,
+          visible: true,
+        },
+        {
+          name: 'lastSeen',
+          title: 'Last seen',
+          field: 'lastSeen',
+          icon: IconUser,
+          visible: true,
+        },
+        {
+          name: 'signedUp',
+          title: 'Signed Up',
+          field: 'signedUp',
+          icon: IconUser,
+          formatter: this.formatTimePeriod,
+          visible: true,
+        },
+      ],
       selected: [],
       sortBy: '',
       sortDesc: false,
+      search: '',
+      filters:
+      {
+      },
     };
   },
   computed:
@@ -162,45 +229,33 @@ export default {
         if (this.updateNow) return new Date(); // we just need to make the computed property dependable on the flag - when the flag flips, the computed property will be recalculated
         return new Date();
       },
-      columnDefs()
+      totalRows()
       {
-        return [
-          {
-            name: 'avatar',
-            field: 'avatar',
-            width: 40,
-          },
-          {
-            name: 'user', // name is not supposed to be localizable
-            title: 'User', // title can be localized
-            field: 'fullName',
-          },
-          {
-            name: 'email',
-            title: 'Email',
-            field: 'email',
-            icon: IconUser,
-          },
-          {
-            name: 'lastSeen',
-            title: 'Last seen',
-            field: 'lastSeen',
-            icon: IconUser,
-          },
-          {
-            name: 'signedUp',
-            title: 'Signed Up',
-            field: 'signedUp',
-            icon: IconUser,
-            formatter: this.formatTimePeriod,
-          },
-        ];
+        return Math.round(960 * Math.random()) + 42;
       },
+      /**
+       * This is just for demonstration purpose - sorting and filtration should be done on the server
+       * @returns {Array}
+       */
+      filteredRows()
+      {
+        const term = (this.search || '').toLowerCase();
+        const cols = this.columnDefs.filter(col => col.visible).map(col => col.field);
+        return this.rows.filter(obj => cols.some(fieldName => String(obj[fieldName]).toLowerCase().indexOf(term) !== -1));
+      },
+      sortedRows()
+      {
+        if (!this.sortBy) return this.filteredRows;
+        const sortBy = this.columnDefs.find(col => col.name === this.sortBy).field;
+        const descending = this.sortDesc ? -1 : +1;
+        return this.filteredRows.slice().sort((a, b) => strCompare(a[sortBy], b[sortBy]) * descending);
+      }
     },
   created()
   {
     this.timer = setInterval(() =>
     {
+      // trigger recalculation of the computed property "currentNow"
       this.updateNow = !this.updateNow;
     }, 1000);
   },
@@ -211,9 +266,20 @@ export default {
   methods:
     {
       dateFormat,
-      rowClicked(row)
+      rowClicked(row, column)
       {
-        console.log(row);
+        console.log(row, column);
+      },
+      /**
+       * Refresh button was clicked
+       */
+      reloadData()
+      {
+        this.loading = true;
+        setTimeout(() =>
+        {
+          this.loading = false;
+        }, 2500);
       },
       /**
        * Formats date-time value into human readable string as a temporal distance in the past from current points in time
@@ -233,14 +299,20 @@ export default {
         if (diff < 60)
         {
           return 'Just now';
-        } else if (diff < 60 * 60 * 24 || !absolute)
-        {
-          return formatDistanceStrict(date, now, {addSuffix: true});
-        } else
-        {
-          return formatDistanceStrict(date, now, {addSuffix: true}) + ' - ' + dateFormat(date, 'PP');
         }
-      }
+        else if (diff < 60 * 60 * 24 || !absolute)
+        {
+          return formatDistanceStrict(date, now, { addSuffix: true });
+        }
+        else
+        {
+          return formatDistanceStrict(date, now, { addSuffix: true }) + ' - ' + dateFormat(date, 'PP');
+        }
+      },
+      exportRows(allColumns)
+      {
+        //
+      },
     }
 };
 </script>
@@ -250,8 +322,11 @@ export default {
 
 @font-face
 {
-  font-family: "faricy-new-web";
-  src: url("https://use.typekit.net/af/106faa/00000000000000003b9afac0/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"), url("https://use.typekit.net/af/106faa/00000000000000003b9afac0/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"), url("https://use.typekit.net/af/106faa/00000000000000003b9afac0/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
+  font-family: faricy-new-web;
+  src:
+    url("https://use.typekit.net/af/106faa/00000000000000003b9afac0/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"),
+    url("https://use.typekit.net/af/106faa/00000000000000003b9afac0/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"),
+    url("https://use.typekit.net/af/106faa/00000000000000003b9afac0/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
   font-display: auto;
   font-style: normal;
   font-weight: 700;
@@ -260,8 +335,11 @@ export default {
 
 @font-face
 {
-  font-family: "faricy-new-web";
-  src: url("https://use.typekit.net/af/7c73c2/00000000000000003b9afaba/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3") format("woff2"), url("https://use.typekit.net/af/7c73c2/00000000000000003b9afaba/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3") format("woff"), url("https://use.typekit.net/af/7c73c2/00000000000000003b9afaba/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3") format("opentype");
+  font-family: faricy-new-web;
+  src:
+    url("https://use.typekit.net/af/7c73c2/00000000000000003b9afaba/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3") format("woff2"),
+    url("https://use.typekit.net/af/7c73c2/00000000000000003b9afaba/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3") format("woff"),
+    url("https://use.typekit.net/af/7c73c2/00000000000000003b9afaba/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n3&v=3") format("opentype");
   font-display: auto;
   font-style: normal;
   font-weight: 300;
@@ -270,8 +348,11 @@ export default {
 
 @font-face
 {
-  font-family: "faricy-new-web";
-  src: url("https://use.typekit.net/af/5b22f8/00000000000000003b9afabf/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n5&v=3") format("woff2"), url("https://use.typekit.net/af/5b22f8/00000000000000003b9afabf/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n5&v=3") format("woff"), url("https://use.typekit.net/af/5b22f8/00000000000000003b9afabf/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n5&v=3") format("opentype");
+  font-family: faricy-new-web;
+  src:
+    url("https://use.typekit.net/af/5b22f8/00000000000000003b9afabf/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n5&v=3") format("woff2"),
+    url("https://use.typekit.net/af/5b22f8/00000000000000003b9afabf/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n5&v=3") format("woff"),
+    url("https://use.typekit.net/af/5b22f8/00000000000000003b9afabf/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n5&v=3") format("opentype");
   font-display: auto;
   font-style: normal;
   font-weight: 500;
@@ -280,8 +361,11 @@ export default {
 
 @font-face
 {
-  font-family: "faricy-new-web";
-  src: url("https://use.typekit.net/af/bb5b9f/00000000000000003b9afabd/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("woff2"), url("https://use.typekit.net/af/bb5b9f/00000000000000003b9afabd/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("woff"), url("https://use.typekit.net/af/bb5b9f/00000000000000003b9afabd/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("opentype");
+  font-family: faricy-new-web;
+  src:
+    url("https://use.typekit.net/af/bb5b9f/00000000000000003b9afabd/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("woff2"),
+    url("https://use.typekit.net/af/bb5b9f/00000000000000003b9afabd/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("woff"),
+    url("https://use.typekit.net/af/bb5b9f/00000000000000003b9afabd/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("opentype");
   font-display: auto;
   font-style: normal;
   font-weight: 400;
@@ -290,6 +374,6 @@ export default {
 
 body
 {
-  font-family: "faricy-new-web", sans-serif;
+  font-family: faricy-new-web, sans-serif;
 }
 </style>

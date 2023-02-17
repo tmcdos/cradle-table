@@ -1,6 +1,6 @@
 <template>
   <div class="table-card min-w-0 rounded-lg bg-white p-4 flex flex-col flex-grow basis-0 overflow-hidden shadow-[inset_0_0_1px_0_var(--shadow-color-1,inset_0_4px_24px_-4px_var(--shadow-color-2]">
-    <DataTableFilterPanel :total="totalItems" />
+    <DataTableFilterPanel v-model:search="query" :total="totalItems" :columns="columns" :loading="loading" @refresh="$emit('refresh')" @export="$emit('export',$event)" />
     <DataTableContent
       v-model="allSelected" v-model:sort-by="sortedBy" v-model:sort-desc="sortedDesc" :items="items" :columns="columns" :selectable="selectable"
       :must-sort="mustSort"
@@ -67,6 +67,9 @@ export default {
        *  icon: Component,
        *  width: Number|String,
        *  formatter: Function,
+       *  class: String|Function,
+       *  style: String|Function,
+       *  visible: Boolean,
        * }} columnDefs
        */
       columns:
@@ -93,8 +96,24 @@ export default {
           type: Boolean,
           default: false,
         },
+      /**
+       * Search term
+       */
+      search:
+        {
+          type: String,
+          default: ''
+        },
+      /**
+       * Whether the data is currently being fetched from the server
+       */
+      loading:
+        {
+          type: Boolean,
+          default: false
+        },
     },
-  emits: ['update:model-value', 'update:sort-by', 'update:sort-desc', 'rowClick'],
+  emits: ['update:model-value', 'update:sort-by', 'update:sort-desc', 'update:search', 'refresh', 'export', 'rowClick'], // rowClick(row,column), export(allColumns)
   computed:
     {
       allSelected:
@@ -130,6 +149,17 @@ export default {
             this.$emit('update:sort-desc', val);
           }
         },
+      query:
+        {
+          get()
+          {
+            return this.search;
+          },
+          set(val)
+          {
+            this.$emit('update:search', val);
+          }
+        },
     }
 };
 </script>
@@ -151,16 +181,6 @@ export default {
 svg:not(:root).svg-inline--fa
 {
   overflow: visible;
-}
-
-.svg-inline--fa.fa-w-10
-{
-  width: 0.625em;
-}
-
-.svg-inline--fa.fa-w-16
-{
-  width: 1em;
 }
 
 .svg-inline--fa

@@ -1,5 +1,5 @@
 <template>
-  <svg aria-hidden="true" focusable="false" class="svg-inline--fa fa-w-18 " role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
+  <svg aria-hidden="true" focusable="false" class="svg-inline--fa w-4.5 " role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
     <path
       fill="currentColor" d="M572.29 279.06l-71.77-72.31c-7.55-7.6-20.52-2.26-20.52 8.45v48.88h-96v-132.1c0-12.7-5.17-25-14.17-33.99L285.94
       14.1c-9-9-21.2-14.1-33.89-14.1H47.99C21.5.1 0 21.6 0 48.09v415.92C0 490.5 21.5 512 47.99 512h287.94c26.5 0 48.07-21.5 48.07-47.99V360.07h-48v103.94H47.99V48.09h159.97v103.98c0
