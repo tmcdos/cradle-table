@@ -1,9 +1,9 @@
 <template>
   <div class="min-h-screen bg-slate-100 p-5">
     <DataTable
-      v-model="selected" v-model:sort-by="sortBy" v-model:sort-desc="sortDesc" v-model:search="search" :filters="filters"
+      v-model="selected" v-model:sort-by="sortBy" v-model:sort-desc="sortDesc" v-model:search="search" v-model:filters="filters"
       :items="sortedRows" :columns="columnDefs" :total-items="totalRows"
-      :loading="loading" selectable class="max-h-600px text-slate-900"
+      :loading="loading" selectable class="max-h-600px text-slate-900 overflow-auto"
       @rowClick="rowClicked" @refresh="reloadData" @export="exportRows"
     >
       <template #body-avatar="props">
@@ -18,8 +18,9 @@
 
 <script>
 import DataTable from '@/components/DataTable.vue';
-import UserAvatar from '@/components/UserAvatar.vue';
-import IconUser from '@/components/IconUser.vue';
+import UserAvatar from '@/components/ui/UserAvatar.vue';
+import IconUser from '@/components/icons/IconUser.vue';
+import { markRaw } from 'vue';
 import {
   format as dateFormat,
   parseISO,
@@ -47,6 +48,76 @@ function strCompare(a, b)
   else if (a > b) return 1;
   else return 0;
 }
+
+const operatorsText = [
+  {
+    name: 'is',
+    id: '=='
+  },
+  {
+    name: 'is not',
+    id: '!='
+  },
+  {
+    name: 'contains',
+    id: 'has'
+  },
+  {
+    name: 'does not contain',
+    id: 'hasnot'
+  },
+  {
+    name: 'starts with',
+    id: 'prefix'
+  },
+  {
+    name: 'ends with',
+    id: 'suffix'
+  },
+  {
+    name: 'has any value',
+    id: 'isset'
+  },
+  {
+    name: 'is empty',
+    id: 'empty'
+  },
+];
+
+const operatorsDate = [
+  {
+    name: 'less than x days ago',
+    id: 'less'
+  },
+  {
+    name: 'exactly x days ago',
+    id: 'exact'
+  },
+  {
+    name: 'more than x days ago',
+    id: 'more'
+  },
+  {
+    name: 'before a specific date',
+    id: 'before'
+  },
+  {
+    name: 'on a specific date',
+    id: 'date'
+  },
+  {
+    name: 'after a specific date',
+    id: 'after'
+  },
+  {
+    name: 'has any value',
+    id: 'isset'
+  },
+  {
+    name: 'is empty',
+    id: 'empty'
+  },
+];
 
 export default {
   name: 'App',
@@ -182,43 +253,55 @@ export default {
           field: 'avatar',
           width: 40,
           visible: true,
+          operators: [
+            {
+              name: 'has avatar',
+              id: 'isset'
+            },
+            {
+              name: 'without avatar',
+              id: 'empty'
+            },
+          ],
         },
         {
           name: 'user', // name is not supposed to be localizable
           title: 'User', // title can be localized
           field: 'fullName',
           visible: true,
+          operators: operatorsText,
         },
         {
           name: 'email',
           title: 'Email',
           field: 'email',
-          icon: IconUser,
+          icon: markRaw(IconUser), // otherwise Vue tries to make it reactive and complains with a warning
           visible: true,
+          operators: operatorsText,
         },
         {
           name: 'lastSeen',
           title: 'Last seen',
           field: 'lastSeen',
-          icon: IconUser,
+          icon: markRaw(IconUser),
           visible: true,
+          operators: operatorsDate,
         },
         {
           name: 'signedUp',
           title: 'Signed Up',
           field: 'signedUp',
-          icon: IconUser,
+          icon: markRaw(IconUser),
           formatter: this.formatTimePeriod,
           visible: true,
+          operators: operatorsDate,
         },
       ],
       selected: [],
       sortBy: '',
       sortDesc: false,
       search: '',
-      filters:
-      {
-      },
+      filters: null,
     };
   },
   computed:
@@ -249,7 +332,7 @@ export default {
         const sortBy = this.columnDefs.find(col => col.name === this.sortBy).field;
         const descending = this.sortDesc ? -1 : +1;
         return this.filteredRows.slice().sort((a, b) => strCompare(a[sortBy], b[sortBy]) * descending);
-      }
+      },
     },
   created()
   {

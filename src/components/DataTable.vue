@@ -1,6 +1,6 @@
 <template>
   <div class="table-card min-w-0 rounded-lg bg-white p-4 flex flex-col flex-grow basis-0 overflow-hidden shadow-[inset_0_0_1px_0_var(--shadow-color-1,inset_0_4px_24px_-4px_var(--shadow-color-2]">
-    <DataTableFilterPanel v-model:search="query" :total="totalItems" :columns="columns" :loading="loading" @refresh="$emit('refresh')" @export="$emit('export',$event)" />
+    <DataTableFilterPanel v-model:search="query" v-model:filters="filter" :total="totalItems" :columns="columns" :loading="loading" @refresh="$emit('refresh')" @export="$emit('export',$event)" />
     <DataTableContent
       v-model="allSelected" v-model:sort-by="sortedBy" v-model:sort-desc="sortedDesc" :items="items" :columns="columns" :selectable="selectable"
       :must-sort="mustSort"
@@ -61,6 +61,10 @@ export default {
       /**
        * Definition of the columns
        * @typedef {{
+       *   id: String,
+       *   name: String,
+       * }} operatorDef
+       * @typedef {{
        *  name: String,
        *  title: String,
        *  field: String,
@@ -70,6 +74,7 @@ export default {
        *  class: String|Function,
        *  style: String|Function,
        *  visible: Boolean,
+       *  operators: operatorDef[],
        * }} columnDefs
        */
       columns:
@@ -105,6 +110,22 @@ export default {
           default: ''
         },
       /**
+       * @typedef {{
+       *   key: String,
+       *   operator: String,
+       *   value: String|Number
+       * }} filterRule
+       * @typedef {{
+       *   condition: ("AND"|"OR"),
+       *   rules: Array<filterObject|filterRule>
+       * }} filterObject
+       */
+      filters:
+        {
+          type: Object,
+          default: () => ({})
+        },
+      /**
        * Whether the data is currently being fetched from the server
        */
       loading:
@@ -113,7 +134,7 @@ export default {
           default: false
         },
     },
-  emits: ['update:model-value', 'update:sort-by', 'update:sort-desc', 'update:search', 'refresh', 'export', 'rowClick'], // rowClick(row,column), export(allColumns)
+  emits: ['update:model-value', 'update:sort-by', 'update:sort-desc', 'update:search', 'update:filters', 'refresh', 'export', 'rowClick'], // rowClick(row,column), export(allColumns)
   computed:
     {
       allSelected:
@@ -160,6 +181,17 @@ export default {
             this.$emit('update:search', val);
           }
         },
+      filter:
+        {
+          get()
+          {
+            return this.filters;
+          },
+          set(val)
+          {
+            this.$emit('update:filters', val);
+          }
+        }
     }
 };
 </script>
