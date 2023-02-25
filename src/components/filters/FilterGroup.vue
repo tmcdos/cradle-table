@@ -10,10 +10,14 @@
         </button>
       </div>
     </div>
-
-    <FilterRule v-for="(rule, index) in rules" ref="rules" :key="'r'+index" v-model="rules[index]" :options="options" @deleteRule="deleteRule(index)" />
-
-    <FilterGroup v-for="(group, index) in groups" ref="groups" :key="'g'+index" v-model="groups[index]" class="ml-30px" :options="options" @deleteGroup="deleteGroup(index)" />
+    <template v-for="(rule,index) in modelValue.rules" :key="index">
+      <!-- eslint-disable vue/no-mutating-props -->
+      <component
+        :is="(rule.condition && rule.rules) ? 'FilterGroup' : 'FilterRule'" v-model="modelValue.rules[index]" :options="options" :class="{'ml-30px': rule.condition && rule.rules}"
+        @deleteRule="deleteRule(index)" @deleteGroup="deleteRule(index)"
+      />
+      <!-- eslint-enable vue/no-mutating-props -->
+    </template>
   </div>
 </template>
 
@@ -36,57 +40,61 @@ export default {
     {
       modelValue:
         {
+          // hierarchical filter definition - composed of nested groups (with logical condition) and individual rules
           type: Object,
           default: () => ({})
         },
       options:
         {
+          // column definitions - each column also specifies the possible filter operators for that column
           type: Object,
           required: true
         },
       isFirst:
         {
+          // first group in the filter can not be deleted
           type: Boolean,
           default: false
         },
     },
-  emits: ['deleteGroup', 'update:model-value'],
-  data()
-  {
-    return {
-      isAnd: true,
-      groups: [],
-      rules: []
-    };
-  },
-  watch:
+  emits: ['deleteGroup'],
+  computed:
     {
-      modelValue:
+      isAnd:
         {
-          deep: true,
-          immediate: true,
-          handler(newVal)
+          get()
           {
-            this.fillFormStatus(newVal);
+            return (this.modelValue.condition || '').toLowerCase() === 'and';
+          },
+          set(val)
+          {
+            this.modelValue.condition = (val ? 'AND' : 'OR'); // eslint-disable-line vue/no-mutating-props
           }
         }
     },
-  created()
-  {
-    this.addRule();
-  },
   methods:
   {
     addRule()
     {
-      this.rules.push(this.generateId());
-      this.updateModel();
+      this.modelValue.rules.push({ // eslint-disable-line vue/no-mutating-props
+        key: null,
+        operator: null,
+        value: '',
+      });
     },
 
     addGroup()
     {
-      this.groups.push(this.generateId());
-      this.updateModel();
+      this.modelValue.rules.push({ // eslint-disable-line vue/no-mutating-props
+        condition: 'AND',
+        rules: [
+          {
+            key: null,
+            operator: null,
+            value: '',
+          }
+        ],
+      });
     },
 
     deleteSelf()
@@ -96,81 +104,8 @@ export default {
 
     deleteRule(index)
     {
-      this.rules.splice(index, 1);
-      this.updateModel();
+      this.modelValue.rules.splice(index, 1); // eslint-disable-line vue/no-mutating-props
     },
-
-    deleteGroup(index)
-    {
-      this.groups.splice(index, 1);
-      this.updateModel();
-    },
-
-    updateModel()
-    {
-      this.$nextTick(() =>
-      {
-        this.$emit('update:model-value', this.queryFormStatus());
-      });
-    },
-    queryFormStatus()
-    {
-      const query = {};
-      const rules = this.$refs.rules || {};
-      const groups = this.$refs.groups || {};
-      let i, j;
-
-      query.condition = this.isAnd ? 'AND' : 'OR';
-      query.rules = [];
-      for (i = 0; i < rules.length; i++)
-      {
-        query.rules.push(rules[i].queryFormStatus());
-      }
-      for (j = 0; j < groups.length; j++)
-      {
-        query.rules[query.rules.length] = groups[j].queryFormStatus();
-      }
-      return query;
-    },
-
-    fillFormStatus(data)
-    {
-      this.rules = [];
-      this.groups = [];
-      if (data)
-      {
-        this.isAnd = /and/i.test(data.condition);
-        data.rules.forEach(rule =>
-        {
-          if (rule.condition)
-          {
-            this.groups.push(this.generateId());
-            // this.$nextTick(() =>
-            // {
-            //   this.$refs.groups[this.groups.length - 1].fillFormStatus(rule);
-            // });
-          }
-          else
-          {
-            this.rules.push(this.generateId());
-            // this.$nextTick(() =>
-            // {
-            //   this.$refs.rules[this.rules.length - 1].fillRuleStatus(rule);
-            // });
-          }
-        });
-      }
-    },
-
-    generateId()
-    {
-      return 'xxxxxxxxxxxxxxxx'.replace(/[xy]/g, function(c)
-      {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-    }
   }
 };
 </script>

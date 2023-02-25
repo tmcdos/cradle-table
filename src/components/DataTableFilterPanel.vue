@@ -75,7 +75,10 @@
             <fieldset>
               <legend class="sr-only">Columns visibility</legend>
               <div v-for="(col,colIndex) in columns" :key="colIndex" class="relative flex items-center my-3">
-                <input :id="`col-vis-${colIndex}`" :aria-describedby="col.title || col.name" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer" :checked="col.visible" @click="col.visible = !col.visible">
+                <input
+                  :id="`col-vis-${colIndex}`" :aria-describedby="col.title || col.name" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
+                  :checked="col.visible" @click="col.visible = !col.visible"
+                >
                 <label :for="`col-vis-${colIndex}`" class="text-gray-700 text-sm ml-3 cursor-pointer">{{ col.title || col.name }}</label>
               </div>
             </fieldset>
@@ -83,8 +86,9 @@
         </transition>
       </DropDown>
     </div>
-    <div class="max-h-300px overflow-auto">
-      <FilterGroup v-if="showFilters" ref="filter" v-model="filterObject" :options="filterOptions" is-first />
+    <!-- Filter builder -->
+    <div v-if="showFilters" class="max-h-300px overflow-auto">
+      <FilterGroup ref="filter" v-model="filterObject" :options="filterOptions" is-first />
     </div>
   </div>
 </template>
@@ -192,10 +196,13 @@ export default
               name: 'Choose column',
               id: null,
               operators: [],
-            }].concat(this.columns.filter(column => column.operators).map(column => ({
+            }].concat(this.columns.filter(column => Array.isArray(column.operators) && column.operators.length > 0).map(column => ({
             id: column.name,
             name: column.title || column.name,
-            operators: column.operators,
+            operators: [{
+              id: null,
+              name: 'Choose operator',
+            }].concat(column.operators), // list of possible filtration operators depends on the column
           })))
         };
       },
@@ -219,12 +226,22 @@ export default
       },
       addFilter()
       {
+        this.filterObject = {
+          condition: 'AND',
+          rules: [
+            {
+              key: null,
+              operator: null,
+              value: '',
+            }
+          ],
+        };
         this.showFilters = true;
       },
       resetFilter()
       {
         this.showFilters = false;
-        this.filter = null;
+        this.filterObject = null;
       },
     }
 };

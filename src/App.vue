@@ -52,19 +52,19 @@ function strCompare(a, b)
 const operatorsText = [
   {
     name: 'is',
-    id: '=='
+    id: 'equal'
   },
   {
     name: 'is not',
-    id: '!='
+    id: 'differs'
   },
   {
     name: 'contains',
-    id: 'has'
+    id: 'includes'
   },
   {
     name: 'does not contain',
-    id: 'hasnot'
+    id: 'excludes'
   },
   {
     name: 'starts with',

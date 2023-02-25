@@ -1,7 +1,9 @@
 <template>
   <div class="flex items-center gap-2 my-2 and-or-rule">
+    <!-- eslint-disable vue/no-mutating-props -->
     <div class="basis-1/4 flex-grow">
-      <select v-model="ruleData.key" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+      <!-- List of table columns -->
+      <select v-model="modelValue.key" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
         <option v-for="option in options.keys" :key="option.id" :value="option.id">
           {{ option.name }}
         </option>
@@ -9,7 +11,8 @@
     </div>
 
     <div class="basis-1/4 flex-grow">
-      <select v-model="ruleData.operator" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+      <!-- List of possible filter operators for that column -->
+      <select v-model="modelValue.operator" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
         <option v-for="option in allowedOperators" :key="option.id" :value="option.id">
           {{ option.name }}
         </option>
@@ -17,10 +20,10 @@
     </div>
 
     <div class="basis-1/4 flex-grow">
-      <label class="sr-only">Value</label>
-      <input v-model="value" type="text" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Value ...">
+      <!-- Parameter for the chosen filter operator -->
+      <input v-model="modelValue.value" type="text" class="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Value ...">
     </div>
-
+    <!-- eslint-enable vue/no-mutating-props -->
     <button class="inline-flex w-6 h-6 border border-blue-500 rounded-full shadow-sm text-blue-500 hover:(bg-blue-500 text-white) focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" @click.prevent="deleteSelf">
       <IconClose class="m-auto" />
     </button>
@@ -50,46 +53,27 @@ export default
           required: true
         },
     },
-  emits: ['deleteRule', 'update:model-value'],
-  data()
-  {
-    return {
-      key: null,
-      operator: null,
-      value: ''
-    };
-  },
+  emits: ['deleteRule'],
   computed:
     {
       chosenField()
       {
-        return this.options.keys.find(item => item.id === this.key);
+        return this.options.keys.find(item => item.id === this.modelValue.key);
       },
       allowedOperators()
       {
-        return this.chosenField.operators;
+        return (this.chosenField || {}).operators || [];
       },
-      ruleData:
-        {
-          get()
-          {
-            return this.modelValue;
-          },
-          set(val)
-          {
-            this.$emit('update:model-value', val);
-          }
-        },
     },
   watch:
   {
-    'options.keys.options'()
+    'modelValue.key'()
     {
-      this.key = null;
+      this.reset();
     },
-    'options.conditions.options'()
+    allowedOperators()
     {
-      this.condition = null;
+      this.reset();
     }
   },
   methods:
@@ -98,17 +82,10 @@ export default
     {
       this.$emit('deleteRule');
     },
-
-    queryFormStatus()
+    reset()
     {
-      return this.ruleData;
-    },
-
-    fillRuleStatus(data)
-    {
-      this.key = data.key;
-      this.operator = data.operator;
-      this.value = data.value;
+      this.modelValue.operator = null; // eslint-disable-line vue/no-mutating-props
+      this.modelValue.value = ''; // eslint-disable-line vue/no-mutating-props
     }
   }
 };
