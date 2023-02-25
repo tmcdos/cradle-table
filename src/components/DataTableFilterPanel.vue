@@ -72,15 +72,46 @@
         >
           <MenuItems class="z-2 p-4 origin-top-right absolute right-0 mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
             <div class="uppercase text-gray-500 pb-2">Visible columns</div>
-            <fieldset>
+            <!-- Visible columns - reordering with drag and drop -->
+            <Container
+              orientation="vertical" :drop-placeholder="dropPlaceholderCSS" :should-accept-drop="() => true"
+              drag-handle-selector=".data-table__drag-handle"
+              drag-class="bg-blue-100 border-2 border-blue-200 text-gray-500 transition duration-100 ease-in z-50"
+              drop-class="transition duration-100 ease-in z-50"
+              @drop="onColumnDrop"
+            >
+              <Draggable v-for="col in visibleColumns" :key="col.name">
+                <div class="flex items-center">
+                  <div class="data-table__drag-handle flex-shrink-0 w-6 text-center py-1 px-2 ">
+                    <svg aria-hidden="true" focusable="false" class="svg-inline--fa w-3" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                      <path
+                        fill="currentColor" d="M96 288H32c-17.67 0-32 14.33-32 32v64c0 17.67 14.33 32 32 32h64c17.67 0 32-14.33 32-32v-64c0-17.67-14.33-32-32-32zm160
+                          0h-64c-17.67 0-32 14.33-32 32v64c0 17.67 14.33 32 32 32h64c17.67 0 32-14.33 32-32v-64c0-17.67-14.33-32-32-32zm160 0h-64c-17.67 0-32 14.33-32 32v64c0
+                          17.67 14.33 32 32 32h64c17.67 0 32-14.33 32-32v-64c0-17.67-14.33-32-32-32zM96 96H32c-17.67 0-32 14.33-32 32v64c0 17.67 14.33 32 32 32h64c17.67 0
+                          32-14.33 32-32v-64c0-17.67-14.33-32-32-32zm160 0h-64c-17.67 0-32 14.33-32 32v64c0 17.67 14.33 32 32 32h64c17.67 0 32-14.33 32-32v-64c0-17.67-14.33-32-32-32zm160
+                          0h-64c-17.67 0-32 14.33-32 32v64c0 17.67 14.33 32 32 32h64c17.67 0 32-14.33 32-32v-64c0-17.67-14.33-32-32-32z"
+                      />
+                    </svg>
+                  </div>
+                  <label class="flex cursor-pointer py-1 pl-2 pr-4 min-w-0 basis-0 flex-grow">
+                    <div class="pr-1">
+                      <input :key="col.name + refresh" type="checkbox" checked :aria-describedby="col.title || col.name" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded cursor-pointer" @click="hideColumn(col)">
+                    </div>
+                    <div v-if="col.icon" class="flex-shrink-0 w-6 text-center mr-2">
+                      <component :is="col.icon" aria-hidden="true" focusable="false" role="img" class="svg-inline--fa w-4" />
+                    </div>
+                    <div>{{ col.title || col.name }}</div>
+                  </label>
+                </div>
+              </Draggable>
+            </Container>
+            <!-- Hidden columns -->
+            <fieldset v-if="remainingColumns.length > 0">
               <legend class="sr-only">Columns visibility</legend>
-              <div v-for="(col,colIndex) in columns" :key="colIndex" class="relative flex items-center my-3">
-                <input
-                  :id="`col-vis-${colIndex}`" :aria-describedby="col.title || col.name" type="checkbox" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded cursor-pointer"
-                  :checked="col.visible" @click="col.visible = !col.visible"
-                >
-                <label :for="`col-vis-${colIndex}`" class="text-gray-700 text-sm ml-3 cursor-pointer">{{ col.title || col.name }}</label>
-              </div>
+              <label v-for="(col,colIndex) in remainingColumns" :key="colIndex" class="flex text-gray-700 text-sm cursor-pointer my-3">
+                <input :key="col.name+'_'+refresh" type="checkbox" :aria-describedby="col.title || col.name" class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded cursor-pointer mr-3" @click="showColumn(col)">
+                {{ col.title || col.name }}
+              </label>
             </fieldset>
           </MenuItems>
         </transition>
@@ -94,6 +125,7 @@
 </template>
 
 <script>
+import { Container, Draggable } from 'vue3-smooth-dnd';
 import DefaultButton from '@/components/ui/DefaultButton.vue';
 import IconReload from '@/components/icons/IconReload.vue';
 import IconExport from '@/components/icons/IconExport.vue';
@@ -108,6 +140,8 @@ export default
   name: 'DataTableFilterPanel',
   components:
     {
+      Container,
+      Draggable,
       MenuItem,
       DefaultButton,
       SpinLoader,
@@ -161,6 +195,9 @@ export default
           type: Array,
           default: () => []
         },
+      /**
+       * The hierarchical nested definition of the filter groups and rules
+       */
       filters:
         {
           type: Object,
@@ -173,10 +210,33 @@ export default
     return {
       exportAllColumns: false,
       showFilters: false,
+      /*
+      When we click on a hidden column to make it visible - the DOM is updated too quickly and the checkbox of the next hidden column (if any)
+      goes below the cursor and accepts the MouseUp event and changes its CHECKED state even though the column.visible property remains FALSE.
+      To prevent this discrepancy between the INPUT state and the corresponding variable we force Vue to re-render the INPUT by changing the
+      "key" attribute.
+       */
+      refresh: 0,
     };
   },
   computed:
     {
+      visibleColumns()
+      {
+        return this.columns.filter(column => column.visible);
+      },
+      remainingColumns()
+      {
+        return this.columns.filter(column => !column.visible);
+      },
+      dropPlaceholderCSS()
+      {
+        return {
+          className: 'bg-blue-500 bg-opacity-20 border-dotted border-2 border-blue-500 rounded-lg min-h-8',
+          animationDuration: '200',
+          showOnTop: true,
+        };
+      },
       query:
         {
           get()
@@ -188,6 +248,9 @@ export default
             this.$emit('update:search', val);
           }
         },
+      /**
+       * Sends to the filter builder only those columns which have a non-empty list of filtration operators.
+       */
       filterOptions()
       {
         return {
@@ -243,6 +306,43 @@ export default
         this.showFilters = false;
         this.filterObject = null;
       },
+      onColumnDrop(dropResult)
+      {
+        const { removedIndex, addedIndex, payload } = dropResult;
+        if (removedIndex === null && addedIndex === null) return;
+
+        let itemToAdd = payload;
+
+        if (removedIndex !== null)
+        {
+          itemToAdd = this.columns.splice(removedIndex, 1)[0]; // eslint-disable-line vue/no-mutating-props
+        }
+
+        if (addedIndex !== null)
+        {
+          this.columns.splice(addedIndex, 0, itemToAdd); // eslint-disable-line vue/no-mutating-props
+        }
+      },
+      showColumn(column)
+      {
+        column.visible = true;
+        this.refresh++;
+      },
+      hideColumn(column)
+      {
+        column.visible = false;
+        this.refresh--;
+      }
     }
 };
 </script>
+
+<style lang="scss">
+.data-table__drag-handle
+{
+  cursor: grab;
+  color: #6B7D8A;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  touch-action: manipulation;
+}
+</style>

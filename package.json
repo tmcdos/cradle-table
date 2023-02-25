@@ -13,7 +13,8 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.7",
     "date-fns": "^2.29.3",
-    "vue": "^3.2.13"
+    "vue": "^3.2.13",
+    "vue3-smooth-dnd": "^0.0.2"
   },
   "devDependencies": {
     "@originjs/vite-plugin-commonjs": "^1.0.1",
@@ -23,13 +24,13 @@
     "@vue/compiler-sfc": "^3.2.26",
     "@vue/eslint-config-standard": "^8.0.1",
     "css-loader": "^6.7.1",
-    "esquery": "1.4.0",
     "eslint": "^8.23.1",
     "eslint-plugin-import": "^2.25.3",
     "eslint-plugin-node": "^11.0.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.1.0",
     "eslint-plugin-vue": "^9.6.0",
+    "esquery": "1.4.0",
     "postcss-html": "^1.2.0",
     "postcss-import": "^12.0.1",
     "postcss-loader": "^6.2.1",
